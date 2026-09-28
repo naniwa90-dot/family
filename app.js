@@ -22,7 +22,7 @@ function escapeHtml(value) { return String(value).replace(/[&<>'"]/g, (character
 function normalizeDate(item) { if (item.date) return item.date; if (item.month) return `${today.getFullYear()}-${String(item.month).padStart(2, '0')}-01`; return ''; }
 function normalizeMemos(value) { return Object.fromEntries(Object.entries(value).map(([date, memo]) => [date, Array.isArray(memo) ? memo : memo?.text ? [memo] : []])); }
 function formatPlannedDate(dateKey) { if (!dateKey) return '날짜 미정'; const date = new Date(`${dateKey}T00:00:00`); return `실행예정: ${date.getFullYear()}년 ${date.getMonth() + 1}월 ${date.getDate()}일`; }
-function normalizePlannedMonth(value) { if (!value) return null; return /^\d{4}-\d{2}$/.test(value) ? `${value}-01` : value; }
+function normalizePlannedMonth(value) { if (!value) return null; const monthValue = String(value).slice(0, 7); return /^\d{4}-\d{2}$/.test(monthValue) ? `${monthValue}-01` : null; }
 
 function renderMembers() {
   $('#memberGrid').innerHTML = members.map((member) => { const list = bucketLists[member] || []; const done = list.filter((item) => item.done).length; return `<button class="member-button" type="button" data-member="${member}"><span class="member-avatar">${member[0]}</span><span class="member-name">${member}</span><span class="member-state">${list.length ? `${done}/${list.length} 달성` : '버킷리스트 작성'}</span></button>`; }).join('');
@@ -38,7 +38,7 @@ function openBucketModal(member) {
   document.querySelectorAll('.done-button').forEach((button) => button.addEventListener('click', () => toggleBucket(Number(button.dataset.index))));
   $('#bucketModal').showModal();
 }
-function editBucket(index) { const item = bucketLists[selectedMember][index]; $('#bucketInput').value = item.text; $('#bucketDate').value = normalizeDate(item); $('#bucketEditIndex').value = index; }
+function editBucket(index) { const item = bucketLists[selectedMember][index]; $('#bucketInput').value = item.text; $('#bucketDate').value = normalizeDate(item).slice(0, 7); $('#bucketEditIndex').value = index; }
 async function deleteBucket(index) {
   const row = bucketRows[selectedMember]?.[index]; if (!row?.id) return;
   const { error } = await supabase.from('family_app_bucket_items').delete().eq('id', row.id);
