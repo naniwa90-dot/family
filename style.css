@@ -88,8 +88,8 @@ h1 em { color: var(--teal); font-style: normal; }
 .planned-item small { color: var(--muted); font-size: 11px; }
 .planned-item b { color: var(--coral); font-size: 12px; font-weight: 400; }
 .completed .bucket-text, .planned-item.completed span { text-decoration: line-through; opacity: .55; }
-.bucket-modal { width: min(650px, calc(100% - 32px)); }
-.bucket-items { margin: 20px 0; max-height: 280px; overflow: auto; }
+.bucket-modal { width: min(820px, calc(100% - 32px)); }
+.bucket-items { margin: 24px 0; max-height: 420px; overflow: auto; }
 .bucket-item { display: grid; grid-template-columns: 25px minmax(0, 1fr); align-items: center; gap: 6px 8px; padding: 12px 0; border-top: 1px solid var(--line); font-size: 13px; }
 .bucket-number { color: var(--coral); font-family: "Space Grotesk", sans-serif; }
 .bucket-date { grid-column: 2; color: var(--muted); font-size: 11px; }
@@ -98,9 +98,9 @@ h1 em { color: var(--teal); font-style: normal; }
 .item-button:hover { color: var(--teal); border-color: var(--teal); }
 .done-button { color: var(--teal); background: var(--mint); border-color: var(--mint); }
 .empty-bucket { padding: 20px 0; color: var(--muted); text-align: center; font-size: 13px; }
-.bucket-form { display: grid; grid-template-columns: 1fr 120px auto; gap: 7px; padding-top: 15px; border-top: 1px solid var(--line); }
+.bucket-form { display: grid; grid-template-columns: minmax(280px, 1fr) 150px auto; gap: 10px; padding-top: 20px; border-top: 1px solid var(--line); }
 .bucket-form input, .bucket-form select, .memo-form select, .memo-form textarea { width: 100%; padding: 11px; border: 1px solid var(--line); border-radius: 3px; color: var(--ink); background: white; font: inherit; font-size: 13px; }
-.bucket-form .date-field { align-self: center; color: var(--muted); font-size: 11px; }
+.bucket-form .date-field { align-self: center; color: var(--muted); font-size: 12px; }
 .primary-button { padding: 10px 14px; border: 0; border-radius: 3px; color: white; background: var(--teal); cursor: pointer; font-size: 12px; }
 .memo-form { display: grid; gap: 7px; margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--line); }
 .memo-form label { color: var(--muted); font-size: 11px; }
@@ -219,6 +219,10 @@ h1 em { color: var(--teal); }
 .all-bucket-copy small { color: var(--muted); font-size: 11px; }
 .all-bucket-item > b { flex: 0 0 auto; color: var(--teal); font-size: 11px; font-weight: 700; }
 .all-bucket-empty { margin: 0; padding: 14px; color: var(--muted); background: white; font-size: 12px; }
+.bucket-modal.day-modal { width: min(820px, calc(100% - 32px)); }
+.bucket-modal .modal-content { min-height: 420px; }
+.bucket-modal .bucket-form input[type="text"] { min-height: 48px; font-size: 15px; }
+.bucket-modal .bucket-form input[type="date"] { min-height: 48px; }
 .modal-content { padding: 38px 34px 34px; }
 .bucket-item { padding: 15px 0; }
 .bucket-actions .item-button, .memo-entry-actions .item-button { border-radius: 5px; }

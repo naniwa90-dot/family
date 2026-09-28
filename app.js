@@ -20,6 +20,7 @@ function escapeHtml(value) { return String(value).replace(/[&<>'"]/g, (character
 function normalizeDate(item) { if (item.date) return item.date; if (item.month) return `${today.getFullYear()}-${String(item.month).padStart(2, '0')}-01`; return ''; }
 function normalizeMemos(value) { return Object.fromEntries(Object.entries(value).map(([date, memo]) => [date, Array.isArray(memo) ? memo : memo?.text ? [memo] : []])); }
 function formatPlannedDate(dateKey) { if (!dateKey) return '날짜 미정'; const date = new Date(`${dateKey}T00:00:00`); return `실행예정: ${date.getFullYear()}년 ${date.getMonth() + 1}월 ${date.getDate()}일`; }
+function normalizePlannedMonth(value) { if (!value) return null; return /^\d{4}-\d{2}$/.test(value) ? `${value}-01` : value; }
 
 function renderMembers() {
   $('#memberGrid').innerHTML = members.map((member) => { const list = bucketLists[member] || []; const done = list.filter((item) => item.done).length; return `<button class="member-button" type="button" data-member="${member}"><span class="member-avatar">${member[0]}</span><span class="member-name">${member}</span><span class="member-state">${list.length ? `${done}/${list.length} 달성` : '버킷리스트 작성'}</span></button>`; }).join('');
@@ -51,7 +52,7 @@ async function toggleBucket(index) {
 async function saveBucket() {
   const text = $('#bucketInput').value.trim(); if (!text) return;
   const index = Number($('#bucketEditIndex').value); const row = bucketRows[selectedMember]?.[index];
-  const payload = { member_id: selectedMember, content: text, planned_month: $('#bucketDate').value || null, is_completed: row?.is_completed || false };
+  const payload = { member_id: selectedMember, content: text, planned_month: normalizePlannedMonth($('#bucketDate').value), is_completed: row?.is_completed || false };
   const request = row?.id ? supabase.from('family_app_bucket_items').update(payload).eq('id', row.id) : supabase.from('family_app_bucket_items').insert(payload);
   const { error } = await request; if (error) return showDataError(error);
   $('#bucketInput').value = ''; $('#bucketDate').value = ''; $('#bucketEditIndex').value = '-1'; await loadFamilyData(); openBucketModal(selectedMember);
@@ -112,9 +113,49 @@ async function loadFamilyData() {
   renderMembers(); renderCalendar();
 }
 
-async function loadAirQuality() { try { const { data: item, error } = await supabase.functions.invoke('air-quality'); if (error) throw error; const pm = Number.parseInt(item?.pm10Value ?? item?.pm10, 10); if (Number.isNaN(pm)) throw new Error('PM10 missing'); const level = pm <= 30 ? ['좋음', 20] : pm <= 80 ? ['보통', 55] : pm <= 150 ? ['나쁨', 82] : ['매우 나쁨', 100]; $('#pmValue').textContent = pm; $('#airBadge').textContent = level[0]; $('#airMeter').style.width = `${level[1]}%`; $('#airNote').textContent = `${item.stationName || '양주 측정소'} · ${item.dataTime || ''}`; } catch { $('#airNote').textContent = '대기정보 Edge Function을 확인해주세요.'; $('#airBadge').textContent = '연결 대기'; } }
+async function loadAirQuality() {
+  try {
+    const { data: item, error } = await supabase.functions.invoke('air-quality', { method: 'GET' });
+    if (error) throw error;
+    const pm = Number.parseInt(item?.pm10Value ?? item?.pm10, 10);
+    if (Number.isNaN(pm)) throw new Error('PM10 missing');
+    const level = pm <= 30 ? ['좋음', 20] : pm <= 80 ? ['보통', 55] : pm <= 150 ? ['나쁨', 82] : ['매우 나쁨', 100];
+    $('#pmValue').textContent = pm; $('#airBadge').textContent = level[0]; $('#airMeter').style.width = `${level[1]}%`;
+    $('#airNote').textContent = `${item.stationName || '양주 측정소'} · ${item.dataTime || ''}`;
+  } catch (error) {
+    console.error('미세먼지 Edge Function 오류:', error);
+    $('#pmValue').textContent = '--'; $('#airBadge').textContent = '연결 대기'; $('#airMeter').style.width = '0%';
+    $('#airNote').textContent = '양주 미세먼지 Edge Function이 배포되었는지 확인해주세요.';
+  }
+}
 function getForecastDate() { const date = new Date(); if (date.getHours() < 6) date.setDate(date.getDate() - 1); return `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`; }
 function parseWeatherText(text) { const row = text.split(/\r?\n/).find((line) => line.trim().startsWith('11B20304')); if (!row) return null; const values = row.trim().split(/\s+/); return { temperature: values.find((value) => /^-?\d+(\.\d+)?$/.test(value)), sky: values.find((value) => /^DB0\d$/.test(value)), rain: values.find((value) => /^[0-4]$/.test(value)) }; }
-async function loadWeather() { try { const { data, error } = await supabase.functions.invoke('weather'); if (error) throw error; const current = data.current || data; const weatherCode = Number(current.weather_code ?? current.weatherCode ?? 0); const skyNames = { DB01: '맑음', DB02: '구름 조금', DB03: '구름 많음', DB04: '흐림' }; const rainNames = { 0: '없음', 1: '비', 2: '비/눈', 3: '눈', 4: '소나기' }; $('#temperature').textContent = `${Math.round(Number(current.temperature_2m ?? current.temperature))}°`; $('#skyStatus').textContent = skyNames[current.sky] || (weatherCode === 0 ? '맑음' : weatherCode <= 3 ? '구름 많음' : '흐림'); $('#rainStatus').textContent = rainNames[current.rain] || (Number(current.precipitation ?? 0) > 0 ? '비' : '없음'); $('#weatherIcon').textContent = current.sky === 'DB04' || weatherCode > 3 ? '☁' : '☀'; $('#weatherNote').textContent = '양주 기상정보 · Edge Function'; } catch { $('#weatherNote').textContent = '기상정보 Edge Function을 확인해주세요.'; } }
+async function loadWeather() {
+  try {
+    const { data, error } = await supabase.functions.invoke('weather', { method: 'GET' });
+    if (error) throw error;
+    renderWeather(data.current || data, '양주 기상정보 · Edge Function');
+  } catch (error) {
+    console.error('기상정보 Edge Function 오류:', error);
+    try {
+      const response = await fetch('https://api.open-meteo.com/v1/forecast?latitude=37.785&longitude=127.045&current=temperature_2m,weather_code,precipitation&timezone=Asia%2FSeoul');
+      if (!response.ok) throw new Error(`weather fallback ${response.status}`);
+      renderWeather((await response.json()).current, '양주 현재 날씨 · 대체 조회');
+    } catch (fallbackError) {
+      console.error('대체 날씨 조회 오류:', fallbackError);
+      $('#weatherNote').textContent = '양주 기상정보 Edge Function이 배포되었는지 확인해주세요.';
+    }
+  }
+}
+function renderWeather(current, note) {
+  const weatherCode = Number(current.weather_code ?? current.weatherCode ?? 0);
+  const skyNames = { DB01: '맑음', DB02: '구름 조금', DB03: '구름 많음', DB04: '흐림' };
+  const rainNames = { 0: '없음', 1: '비', 2: '비/눈', 3: '눈', 4: '소나기' };
+  $('#temperature').textContent = `${Math.round(Number(current.temperature_2m ?? current.temperature))}°`;
+  $('#skyStatus').textContent = skyNames[current.sky] || (weatherCode === 0 ? '맑음' : weatherCode <= 3 ? '구름 많음' : '흐림');
+  $('#rainStatus').textContent = rainNames[current.rain] || (Number(current.precipitation ?? 0) > 0 ? '비' : '없음');
+  $('#weatherIcon').textContent = current.sky === 'DB04' || weatherCode > 3 ? '☁' : '☀';
+  $('#weatherNote').textContent = note;
+}
 async function setup() { $('#todayLabel').textContent = displayDate(today); $('#memoWriter').innerHTML = members.map((member) => `<option>${member}</option>`).join(''); $('#closeBucketModal').addEventListener('click', () => $('#bucketModal').close()); $('#closeAllBuckets').addEventListener('click', () => $('#allBucketModal').close()); $('#closeDayModal').addEventListener('click', () => $('#dayModal').close()); $('#openAllBuckets').addEventListener('click', openAllBuckets); $('#saveBucket').addEventListener('click', saveBucket); $('#saveMemo').addEventListener('click', saveMemo); $('#prevMonth').addEventListener('click', () => { calendarDate.setMonth(calendarDate.getMonth() - 1); renderCalendar(); }); $('#nextMonth').addEventListener('click', () => { calendarDate.setMonth(calendarDate.getMonth() + 1); renderCalendar(); }); renderMembers(); renderCalendar(); await loadFamilyData(); loadAirQuality(); loadWeather(); }
 setup();
