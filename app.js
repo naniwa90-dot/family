@@ -6,6 +6,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 const SUPABASE_FUNCTIONS_URL = `${SUPABASE_URL}/functions/v1`;
 
 const members = ['철이', '순이', '형재', '윤재'];
+let memberRecords = members.map((name) => ({ id: name, display_name: name }));
 const $ = (selector) => document.querySelector(selector);
 const today = new Date();
 let calendarDate = new Date(today.getFullYear(), today.getMonth(), 1);
@@ -14,6 +15,7 @@ let selectedMember = members[0];
 let bucketLists = {};
 let dayMemos = {};
 let bucketRows = {};
+function getMemberRecord(name) { return memberRecords.find((member) => member.display_name === name) || { id: name, display_name: name }; }
 function formatDate(date) { return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`; }
 function displayDate(date) { return date.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' }); }
 function escapeHtml(value) { return String(value).replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[character])); }
@@ -52,7 +54,7 @@ async function toggleBucket(index) {
 async function saveBucket() {
   const text = $('#bucketInput').value.trim(); if (!text) return;
   const index = Number($('#bucketEditIndex').value); const row = bucketRows[selectedMember]?.[index];
-  const payload = { member_id: selectedMember, content: text, planned_month: normalizePlannedMonth($('#bucketDate').value), is_completed: row?.is_completed || false };
+  const payload = { member_id: getMemberRecord(selectedMember).id, content: text, planned_month: normalizePlannedMonth($('#bucketDate').value), is_completed: row?.is_completed || false };
   const request = row?.id ? supabase.from('family_app_bucket_items').update(payload).eq('id', row.id) : supabase.from('family_app_bucket_items').insert(payload);
   const { error } = await request; if (error) return showDataError(error);
   $('#bucketInput').value = ''; $('#bucketDate').value = ''; $('#bucketEditIndex').value = '-1'; await loadFamilyData(); openBucketModal(selectedMember);
@@ -81,10 +83,10 @@ function openMemoModal(dateKey) {
   const memos = dayMemos[dateKey] || []; const planned = plannedForDate(dateKey); $('#modalDate').textContent = displayDate(new Date(`${dateKey}T00:00:00`));
   $('#modalPlanned').innerHTML = planned.length ? `<h3>이 날 실행예정</h3><ul>${planned.map((item) => `<li class="modal-planned-item${item.done ? ' completed' : ''}"><span>${escapeHtml(item.text)}</span><b>${item.member}</b></li>`).join('')}</ul>` : '';
   $('#modalMembers').innerHTML = memos.length ? memos.map((memo, index) => `<div class="memo-entry"><span><b>${escapeHtml(memo.writer)}</b>${escapeHtml(memo.text)}</span><span class="memo-entry-actions"><button class="item-button edit-memo" data-index="${index}" type="button">수정</button><button class="item-button delete-memo" data-index="${index}" type="button">삭제</button></span></div>`).join('') : '';
-  $('#memoWriter').value = members[0]; $('#memoText').value = ''; $('#memoEditIndex').value = '-1';
+  $('#memoWriter').value = getMemberRecord(members[0]).id; $('#memoText').value = ''; $('#memoEditIndex').value = '-1';
   document.querySelectorAll('.edit-memo').forEach((button) => button.addEventListener('click', () => editMemo(Number(button.dataset.index)))); document.querySelectorAll('.delete-memo').forEach((button) => button.addEventListener('click', () => deleteMemo(Number(button.dataset.index)))); $('#dayModal').showModal();
 }
-function editMemo(index) { const memo = dayMemos[selectedDate][index]; $('#memoWriter').value = memo.writer; $('#memoText').value = memo.text; $('#memoEditIndex').value = index; }
+function editMemo(index) { const memo = dayMemos[selectedDate][index]; $('#memoWriter').value = getMemberRecord(memo.writer).id; $('#memoText').value = memo.text; $('#memoEditIndex').value = index; }
 async function deleteMemo(index) {
   const memo = dayMemos[selectedDate]?.[index]; if (!memo?.id) return;
   const { error } = await supabase.from('family_app_diary_entries').delete().eq('id', memo.id);
@@ -94,7 +96,7 @@ async function deleteMemo(index) {
 async function saveMemo() {
   const text = $('#memoText').value.trim(); if (!text) return;
   const memos = dayMemos[selectedDate] || []; const index = Number($('#memoEditIndex').value); const oldMemo = memos[index];
-  const payload = { entry_date: selectedDate, member_id: $('#memoWriter').value, content: text };
+  const payload = { entry_date: selectedDate, member_id: getMemberRecord($('#memoWriter').value).id, content: text };
   const request = oldMemo?.id ? supabase.from('family_app_diary_entries').update(payload).eq('id', oldMemo.id) : supabase.from('family_app_diary_entries').insert(payload);
   const { error } = await request; if (error) return showDataError(error);
   await loadFamilyData(); openMemoModal(selectedDate); renderDayDetail();
@@ -107,10 +109,15 @@ async function loadFamilyData() {
     supabase.from('family_app_diary_entries').select('id, entry_date, member_id, content').order('entry_date').order('id')
   ]);
   if (bucketError || memoError) { showDataError(bucketError || memoError); return; }
-  bucketRows = members.reduce((result, member) => { result[member] = (buckets || []).filter((row) => row.member_id === member); return result; }, {});
+  bucketRows = members.reduce((result, member) => { const memberId = getMemberRecord(member).id; result[member] = (buckets || []).filter((row) => row.member_id === memberId || row.member_id === member); return result; }, {});
   bucketLists = members.reduce((result, member) => { result[member] = (bucketRows[member] || []).map((row) => ({ id: row.id, text: row.content, date: row.planned_month || '', done: Boolean(row.is_completed) })); return result; }, {});
-  dayMemos = (memos || []).reduce((result, row) => { const date = row.entry_date; (result[date] ||= []).push({ id: row.id, writer: row.member_id, text: row.content }); return result; }, {});
+  dayMemos = (memos || []).reduce((result, row) => { const date = row.entry_date; const writer = memberRecords.find((member) => member.id === row.member_id)?.display_name || row.member_id; (result[date] ||= []).push({ id: row.id, writer, text: row.content }); return result; }, {});
   renderMembers(); renderCalendar();
+}
+
+async function loadMemberRecords() {
+  const { data, error } = await supabase.from('family_app_members').select('id, display_name');
+  if (!error && data?.length) memberRecords = data.map((member) => ({ id: member.id, display_name: member.display_name }));
 }
 
 async function loadAirQuality() {
@@ -124,8 +131,19 @@ async function loadAirQuality() {
     $('#airNote').textContent = `${item.stationName || '양주 측정소'} · ${item.dataTime || ''}`;
   } catch (error) {
     console.error('미세먼지 Edge Function 오류:', error);
-    $('#pmValue').textContent = '--'; $('#airBadge').textContent = '연결 대기'; $('#airMeter').style.width = '0%';
-    $('#airNote').textContent = '양주 미세먼지 Edge Function이 배포되었는지 확인해주세요.';
+    try {
+      const response = await fetch('https://air-quality-api.open-meteo.com/v1/air-quality?latitude=37.785&longitude=127.045&current=pm10&timezone=Asia%2FSeoul');
+      if (!response.ok) throw new Error(`air fallback ${response.status}`);
+      const pm = Number.parseInt((await response.json())?.current?.pm10, 10);
+      if (Number.isNaN(pm)) throw new Error('fallback PM10 missing');
+      const level = pm <= 30 ? ['좋음', 20] : pm <= 80 ? ['보통', 55] : pm <= 150 ? ['나쁨', 82] : ['매우 나쁨', 100];
+      $('#pmValue').textContent = pm; $('#airBadge').textContent = level[0]; $('#airMeter').style.width = `${level[1]}%`;
+      $('#airNote').textContent = '양주 PM10 · 대체 조회';
+    } catch (fallbackError) {
+      console.error('대체 미세먼지 조회 오류:', fallbackError);
+      $('#pmValue').textContent = '--'; $('#airBadge').textContent = '연결 대기'; $('#airMeter').style.width = '0%';
+      $('#airNote').textContent = '양주 미세먼지 Edge Function이 배포되었는지 확인해주세요.';
+    }
   }
 }
 function getForecastDate() { const date = new Date(); if (date.getHours() < 6) date.setDate(date.getDate() - 1); return `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`; }
@@ -157,5 +175,5 @@ function renderWeather(current, note) {
   $('#weatherIcon').textContent = current.sky === 'DB04' || weatherCode > 3 ? '☁' : '☀';
   $('#weatherNote').textContent = note;
 }
-async function setup() { $('#todayLabel').textContent = displayDate(today); $('#memoWriter').innerHTML = members.map((member) => `<option>${member}</option>`).join(''); $('#closeBucketModal').addEventListener('click', () => $('#bucketModal').close()); $('#closeAllBuckets').addEventListener('click', () => $('#allBucketModal').close()); $('#closeDayModal').addEventListener('click', () => $('#dayModal').close()); $('#openAllBuckets').addEventListener('click', openAllBuckets); $('#saveBucket').addEventListener('click', saveBucket); $('#saveMemo').addEventListener('click', saveMemo); $('#prevMonth').addEventListener('click', () => { calendarDate.setMonth(calendarDate.getMonth() - 1); renderCalendar(); }); $('#nextMonth').addEventListener('click', () => { calendarDate.setMonth(calendarDate.getMonth() + 1); renderCalendar(); }); renderMembers(); renderCalendar(); await loadFamilyData(); loadAirQuality(); loadWeather(); }
+async function setup() { $('#todayLabel').textContent = displayDate(today); $('#memoWriter').innerHTML = members.map((member) => `<option value="${getMemberRecord(member).id}">${member}</option>`).join(''); $('#closeBucketModal').addEventListener('click', () => $('#bucketModal').close()); $('#closeAllBuckets').addEventListener('click', () => $('#allBucketModal').close()); $('#closeDayModal').addEventListener('click', () => $('#dayModal').close()); $('#openAllBuckets').addEventListener('click', openAllBuckets); $('#saveBucket').addEventListener('click', saveBucket); $('#saveMemo').addEventListener('click', saveMemo); $('#prevMonth').addEventListener('click', () => { calendarDate.setMonth(calendarDate.getMonth() - 1); renderCalendar(); }); $('#nextMonth').addEventListener('click', () => { calendarDate.setMonth(calendarDate.getMonth() + 1); renderCalendar(); }); renderMembers(); renderCalendar(); await loadMemberRecords(); $('#memoWriter').innerHTML = members.map((member) => `<option value="${getMemberRecord(member).id}">${member}</option>`).join(''); await loadFamilyData(); loadAirQuality(); loadWeather(); }
 setup();
