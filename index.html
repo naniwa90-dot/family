@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#123c43">
+  <title>우리가족 버킷리스트</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Gowun+Dodum&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="page-shell">
+    <header class="topbar">
+      <a class="brand" href="#top" aria-label="우리가족 버킷리스트 홈">
+        <span class="brand-mark">家</span>
+        <span><strong>우리가족 버킷리스트</strong><small>함께 계획하고, 함께 이루는 하루</small></span>
+      </a>
+      <div class="topbar-date" id="todayLabel"></div>
+    </header>
+    <main id="top">
+      <section class="intro-section">
+        <div>
+          <p class="eyebrow">OUR FAMILY / BUCKET LIST</p>
+          <h1>우리가족 버킷리스트,<br><em>오늘부터 적어봐요.</em></h1>
+          <p class="intro-copy">양주의 공기와 날씨를 확인하고<br>가족의 하고 싶은 일을 한 곳에 기록해요.</p>
+        </div>
+        <div class="sunrise-art" aria-hidden="true"><span class="hope-glow"></span><span class="hope-sun"></span><span class="spark spark-one">✦</span><span class="spark spark-two">✧</span><span class="spark spark-three">✦</span><span class="paper-plane">➤</span><span class="art-label">DREAM TOGETHER</span></div>
+      </section>
+      <section class="status-grid" aria-label="양주 환경 정보">
+        <article class="status-panel air-panel"><div class="panel-heading"><div><p class="panel-kicker">AIR QUALITY</p><h2>양주 미세먼지</h2></div><span class="data-badge" id="airBadge">확인 중</span></div><div class="metric-row"><strong class="metric-value" id="pmValue">--</strong><span class="metric-unit">㎍/㎥<br>PM10</span></div><div class="meter"><span id="airMeter"></span></div><p class="data-note" id="airNote">양주 미세먼지 API를 불러오는 중입니다.</p></article>
+        <article class="status-panel weather-panel"><div class="panel-heading"><div><p class="panel-kicker">YANGJU WEATHER</p><h2>양주 기상정보</h2></div><span class="weather-icon" id="weatherIcon" aria-hidden="true">☀</span></div><div class="weather-main"><strong class="metric-value" id="temperature">--°</strong><div class="weather-tags"><span><b>하늘</b><i id="skyStatus">확인 중</i></span><span><b>비</b><i id="rainStatus">확인 중</i></span></div></div><p class="data-note" id="weatherNote">기상청 단기 육상정보를 불러오는 중입니다.</p></article>
+      </section>
+      <section class="attendance-section family-section"><div class="section-heading"><div><p class="panel-kicker">CHEOLI · SOONI · HYEONGJAE · YOONJAE</p><h2>철이순이 가족</h2></div><div class="attendance-count"><strong id="bucketCount">0</strong><span>개 버킷리스트</span></div></div><p class="section-description">이름을 누르면 각자의 버킷리스트를 보고 관리할 수 있어요.</p><div class="member-grid" id="memberGrid"></div><button class="all-bucket-button" id="openAllBuckets" type="button"><span>전체 버킷리스트</span><b>→</b></button><div class="attendance-actions"><span class="saved-message" id="savedMessage" role="status"></span></div></section>
+      <section class="honors-section" hidden></section>
+      <section class="calendar-section"><div class="section-heading calendar-heading"><div><p class="panel-kicker">FAMILY PLAN</p><h2>오늘의 기록</h2></div><div class="calendar-nav"><button id="prevMonth" type="button" aria-label="이전 달">←</button><strong id="calendarTitle"></strong><button id="nextMonth" type="button" aria-label="다음 달">→</button></div></div><div class="calendar-wrap"><div class="weekday-row"><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div><div class="calendar-grid" id="calendarGrid"></div></div><div class="day-detail" id="dayDetail"><span class="detail-dot"></span><span>날짜를 선택하면 기록을 확인할 수 있어요.</span></div></section>
+    </main>
+    <footer><span>OUR FAMILY</span><span>작은 기록이 만드는 추억</span></footer>
+  </div>
+  <dialog class="bucket-modal day-modal" id="bucketModal" aria-labelledby="bucketModalTitle"><div class="modal-content"><button class="modal-close" id="closeBucketModal" type="button" aria-label="버킷리스트 닫기">×</button><p class="panel-kicker">FAMILY BUCKET LIST</p><h2 id="bucketModalTitle"></h2><ul class="bucket-items" id="bucketItems"></ul><div class="bucket-form"><input id="bucketInput" type="text" placeholder="하고 싶은 일을 적어보세요." maxlength="80"><label class="date-field" for="bucketDate">실행예정</label><input id="bucketDate" type="date" aria-label="실행 예정 날짜"><input id="bucketEditIndex" type="hidden" value="-1"><button class="primary-button" id="saveBucket" type="button">저장</button></div></div></dialog>
+  <dialog class="all-bucket-modal day-modal" id="allBucketModal" aria-labelledby="allBucketTitle"><div class="modal-content"><button class="modal-close" id="closeAllBuckets" type="button" aria-label="전체 버킷리스트 닫기">×</button><p class="panel-kicker">FAMILY COLLECTION</p><h2 id="allBucketTitle">전체 버킷리스트</h2><div id="allBucketContent"></div></div></dialog>
+  <dialog class="day-modal" id="dayModal" aria-labelledby="modalDate"><div class="modal-content"><button class="modal-close" id="closeDayModal" type="button" aria-label="날짜 기록 닫기">×</button><h2 id="modalDate"></h2><div class="modal-planned" id="modalPlanned"></div><div class="modal-members" id="modalMembers"></div><div class="memo-form"><label for="memoWriter">작성자</label><select id="memoWriter"></select><label for="memoText">내용</label><textarea id="memoText" rows="4" placeholder="오늘의 이야기를 남겨보세요."></textarea><input id="memoEditIndex" type="hidden" value="-1"><div class="memo-actions"><button class="primary-button" id="saveMemo" type="button">저장</button></div></div></div></dialog>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
