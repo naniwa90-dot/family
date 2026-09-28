@@ -1,18 +1,19 @@
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+const SUPABASE_URL = 'https://arskacukxopovmlzxnli.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_O2MfbHDZOEC6iRu_1oRsqQ_OfMydk58';
+const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+const SUPABASE_FUNCTIONS_URL = `${SUPABASE_URL}/functions/v1`;
+
 const members = ['철이', '순이', '형재', '윤재'];
-const airServiceKey = 'd0f07c7b0b2b1e128da4617d440bb9cd551b0552cad6b3f137fbb3900138a4e7';
-const kmaAuthKey = 'd2CcU-KkRL6gnFPipPS-Lw';
-const airApiUrl = 'https://apis.data.go.kr/5590000/AirQualityService/getAirQualityList';
-const kmaApiUrl = 'https://apihub.kma.go.kr/api/typ01/url/fct_afs_dl.php';
 const $ = (selector) => document.querySelector(selector);
 const today = new Date();
 let calendarDate = new Date(today.getFullYear(), today.getMonth(), 1);
 let selectedDate = formatDate(today);
 let selectedMember = members[0];
-let bucketLists = loadJson('family-bucket-list', {});
-let dayMemos = normalizeMemos(loadJson('family-day-memos', {}));
-
-function loadJson(key, fallback) { try { return JSON.parse(localStorage.getItem(key)) || fallback; } catch { return fallback; } }
-function saveJson(key, value) { localStorage.setItem(key, JSON.stringify(value)); }
+let bucketLists = {};
+let dayMemos = {};
+let bucketRows = {};
 function formatDate(date) { return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`; }
 function displayDate(date) { return date.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' }); }
 function escapeHtml(value) { return String(value).replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[character])); }
@@ -35,14 +36,25 @@ function openBucketModal(member) {
   $('#bucketModal').showModal();
 }
 function editBucket(index) { const item = bucketLists[selectedMember][index]; $('#bucketInput').value = item.text; $('#bucketDate').value = normalizeDate(item); $('#bucketEditIndex').value = index; }
-function deleteBucket(index) { bucketLists[selectedMember].splice(index, 1); saveJson('family-bucket-list', bucketLists); openBucketModal(selectedMember); renderMembers(); renderCalendar(); }
-function toggleBucket(index) { bucketLists[selectedMember][index].done = !bucketLists[selectedMember][index].done; saveJson('family-bucket-list', bucketLists); openBucketModal(selectedMember); renderMembers(); renderCalendar(); }
-function saveBucket() {
+async function deleteBucket(index) {
+  const row = bucketRows[selectedMember]?.[index]; if (!row?.id) return;
+  const { error } = await supabase.from('family_app_bucket_items').delete().eq('id', row.id);
+  if (error) return showDataError(error);
+  await loadFamilyData(); openBucketModal(selectedMember);
+}
+async function toggleBucket(index) {
+  const row = bucketRows[selectedMember]?.[index]; if (!row?.id) return;
+  const { error } = await supabase.from('family_app_bucket_items').update({ is_completed: !row.is_completed }).eq('id', row.id);
+  if (error) return showDataError(error);
+  await loadFamilyData(); openBucketModal(selectedMember);
+}
+async function saveBucket() {
   const text = $('#bucketInput').value.trim(); if (!text) return;
-  const list = bucketLists[selectedMember] || (bucketLists[selectedMember] = []); const index = Number($('#bucketEditIndex').value); const oldItem = list[index];
-  const item = { text, date: $('#bucketDate').value, done: index >= 0 ? Boolean(oldItem?.done) : false };
-  if (index >= 0) list[index] = item; else list.push(item);
-  saveJson('family-bucket-list', bucketLists); $('#bucketInput').value = ''; $('#bucketDate').value = ''; $('#bucketEditIndex').value = '-1'; openBucketModal(selectedMember); renderMembers(); renderCalendar();
+  const index = Number($('#bucketEditIndex').value); const row = bucketRows[selectedMember]?.[index];
+  const payload = { member_id: selectedMember, content: text, planned_month: $('#bucketDate').value || null, is_completed: row?.is_completed || false };
+  const request = row?.id ? supabase.from('family_app_bucket_items').update(payload).eq('id', row.id) : supabase.from('family_app_bucket_items').insert(payload);
+  const { error } = await request; if (error) return showDataError(error);
+  $('#bucketInput').value = ''; $('#bucketDate').value = ''; $('#bucketEditIndex').value = '-1'; await loadFamilyData(); openBucketModal(selectedMember);
 }
 function openAllBuckets() {
   const items = allPlannedItems();
@@ -72,13 +84,37 @@ function openMemoModal(dateKey) {
   document.querySelectorAll('.edit-memo').forEach((button) => button.addEventListener('click', () => editMemo(Number(button.dataset.index)))); document.querySelectorAll('.delete-memo').forEach((button) => button.addEventListener('click', () => deleteMemo(Number(button.dataset.index)))); $('#dayModal').showModal();
 }
 function editMemo(index) { const memo = dayMemos[selectedDate][index]; $('#memoWriter').value = memo.writer; $('#memoText').value = memo.text; $('#memoEditIndex').value = index; }
-function deleteMemo(index) { dayMemos[selectedDate].splice(index, 1); if (!dayMemos[selectedDate].length) delete dayMemos[selectedDate]; saveJson('family-day-memos', dayMemos); openMemoModal(selectedDate); renderDayDetail(); }
-function saveMemo() { const text = $('#memoText').value.trim(); if (!text) return; const memos = dayMemos[selectedDate] || (dayMemos[selectedDate] = []); const index = Number($('#memoEditIndex').value); const memo = { writer: $('#memoWriter').value, text }; if (index >= 0) memos[index] = memo; else memos.push(memo); saveJson('family-day-memos', dayMemos); openMemoModal(selectedDate); renderDayDetail(); }
-function resetMemoForm() { $('#memoWriter').value = members[0]; $('#memoText').value = ''; $('#memoEditIndex').value = '-1'; }
+async function deleteMemo(index) {
+  const memo = dayMemos[selectedDate]?.[index]; if (!memo?.id) return;
+  const { error } = await supabase.from('family_app_diary_entries').delete().eq('id', memo.id);
+  if (error) return showDataError(error);
+  await loadFamilyData(); openMemoModal(selectedDate);
+}
+async function saveMemo() {
+  const text = $('#memoText').value.trim(); if (!text) return;
+  const memos = dayMemos[selectedDate] || []; const index = Number($('#memoEditIndex').value); const oldMemo = memos[index];
+  const payload = { entry_date: selectedDate, member_id: $('#memoWriter').value, content: text };
+  const request = oldMemo?.id ? supabase.from('family_app_diary_entries').update(payload).eq('id', oldMemo.id) : supabase.from('family_app_diary_entries').insert(payload);
+  const { error } = await request; if (error) return showDataError(error);
+  await loadFamilyData(); openMemoModal(selectedDate); renderDayDetail();
+}
 
-async function loadAirQuality() { try { const now = new Date(); const searchDate = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`; const params = new URLSearchParams({ serviceKey: airServiceKey, pageNo: '1', numOfRows: '1', searchDate, dataType: 'JSON' }); const response = await fetch(`${airApiUrl}?${params}`); if (!response.ok) throw new Error('air response'); const item = (await response.json())?.response?.body?.items?.[0]; const pm = Number.parseInt(item?.pm10Value, 10); if (Number.isNaN(pm)) throw new Error('PM10 missing'); const level = pm <= 30 ? ['좋음', 20] : pm <= 80 ? ['보통', 55] : pm <= 150 ? ['나쁨', 82] : ['매우 나쁨', 100]; $('#pmValue').textContent = pm; $('#airBadge').textContent = level[0]; $('#airMeter').style.width = `${level[1]}%`; $('#airNote').textContent = `${item.stationName || '양주 측정소'} · ${item.dataTime || searchDate}`; } catch { $('#airNote').textContent = '대기정보를 불러오지 못했어요. API 키 또는 CORS를 확인해주세요.'; $('#airBadge').textContent = '연결 대기'; } }
+function showDataError(error) { console.error('Supabase 오류:', error.message); $('#savedMessage').textContent = `저장 오류: ${error.message}`; }
+async function loadFamilyData() {
+  const [{ data: buckets, error: bucketError }, { data: memos, error: memoError }] = await Promise.all([
+    supabase.from('family_app_bucket_items').select('id, member_id, content, planned_month, is_completed').order('id'),
+    supabase.from('family_app_diary_entries').select('id, entry_date, member_id, content').order('entry_date').order('id')
+  ]);
+  if (bucketError || memoError) { showDataError(bucketError || memoError); return; }
+  bucketRows = members.reduce((result, member) => { result[member] = (buckets || []).filter((row) => row.member_id === member); return result; }, {});
+  bucketLists = members.reduce((result, member) => { result[member] = (bucketRows[member] || []).map((row) => ({ id: row.id, text: row.content, date: row.planned_month || '', done: Boolean(row.is_completed) })); return result; }, {});
+  dayMemos = (memos || []).reduce((result, row) => { const date = row.entry_date; (result[date] ||= []).push({ id: row.id, writer: row.member_id, text: row.content }); return result; }, {});
+  renderMembers(); renderCalendar();
+}
+
+async function loadAirQuality() { try { const { data: item, error } = await supabase.functions.invoke('air-quality'); if (error) throw error; const pm = Number.parseInt(item?.pm10Value ?? item?.pm10, 10); if (Number.isNaN(pm)) throw new Error('PM10 missing'); const level = pm <= 30 ? ['좋음', 20] : pm <= 80 ? ['보통', 55] : pm <= 150 ? ['나쁨', 82] : ['매우 나쁨', 100]; $('#pmValue').textContent = pm; $('#airBadge').textContent = level[0]; $('#airMeter').style.width = `${level[1]}%`; $('#airNote').textContent = `${item.stationName || '양주 측정소'} · ${item.dataTime || ''}`; } catch { $('#airNote').textContent = '대기정보 Edge Function을 확인해주세요.'; $('#airBadge').textContent = '연결 대기'; } }
 function getForecastDate() { const date = new Date(); if (date.getHours() < 6) date.setDate(date.getDate() - 1); return `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`; }
 function parseWeatherText(text) { const row = text.split(/\r?\n/).find((line) => line.trim().startsWith('11B20304')); if (!row) return null; const values = row.trim().split(/\s+/); return { temperature: values.find((value) => /^-?\d+(\.\d+)?$/.test(value)), sky: values.find((value) => /^DB0\d$/.test(value)), rain: values.find((value) => /^[0-4]$/.test(value)) }; }
-async function loadWeather() { try { const date = getForecastDate(); const params = new URLSearchParams({ reg: '11B20304', tmfc1: `${date}0000`, tmfc2: `${date}2359`, disp: '0', help: '1', authKey: kmaAuthKey }); const response = await fetch(`${kmaApiUrl}?${params}`); if (!response.ok) throw new Error('weather response'); const parsed = parseWeatherText(await response.text()); if (!parsed?.temperature) throw new Error('temperature missing'); const skyNames = { DB01: '맑음', DB02: '구름 조금', DB03: '구름 많음', DB04: '흐림' }; const rainNames = { 0: '없음', 1: '비', 2: '비/눈', 3: '눈', 4: '소나기' }; $('#temperature').textContent = `${Math.round(Number(parsed.temperature))}°`; $('#skyStatus').textContent = skyNames[parsed.sky] || '확인됨'; $('#rainStatus').textContent = rainNames[parsed.rain] || '없음'; $('#weatherIcon').textContent = parsed.sky === 'DB04' ? '☁' : '☀'; $('#weatherNote').textContent = `기상청 단기 육상정보 · ${date} 발표`; } catch { try { const response = await fetch('https://api.open-meteo.com/v1/forecast?latitude=37.785&longitude=127.045&current=temperature_2m,weather_code,precipitation&timezone=Asia%2FSeoul'); if (!response.ok) throw new Error('fallback weather response'); const current = (await response.json()).current; const weatherCode = Number(current.weather_code); $('#temperature').textContent = `${Math.round(Number(current.temperature_2m))}°`; $('#skyStatus').textContent = weatherCode === 0 ? '맑음' : weatherCode <= 3 ? '구름 많음' : '흐림'; $('#rainStatus').textContent = Number(current.precipitation) > 0 ? '비' : '없음'; $('#weatherIcon').textContent = weatherCode > 3 ? '☁' : '☀'; $('#weatherNote').textContent = '양주 현재 날씨 · 대체 조회'; } catch { $('#weatherNote').textContent = '기상정보를 불러오지 못했어요. 잠시 후 다시 확인해주세요.'; } } }
-function setup() { $('#todayLabel').textContent = displayDate(today); $('#memoWriter').innerHTML = members.map((member) => `<option>${member}</option>`).join(''); $('#closeBucketModal').addEventListener('click', () => $('#bucketModal').close()); $('#closeAllBuckets').addEventListener('click', () => $('#allBucketModal').close()); $('#closeDayModal').addEventListener('click', () => $('#dayModal').close()); $('#openAllBuckets').addEventListener('click', openAllBuckets); $('#saveBucket').addEventListener('click', saveBucket); $('#saveMemo').addEventListener('click', saveMemo); $('#prevMonth').addEventListener('click', () => { calendarDate.setMonth(calendarDate.getMonth() - 1); renderCalendar(); }); $('#nextMonth').addEventListener('click', () => { calendarDate.setMonth(calendarDate.getMonth() + 1); renderCalendar(); }); renderMembers(); renderCalendar(); loadAirQuality(); loadWeather(); }
+async function loadWeather() { try { const { data, error } = await supabase.functions.invoke('weather'); if (error) throw error; const current = data.current || data; const weatherCode = Number(current.weather_code ?? current.weatherCode ?? 0); const skyNames = { DB01: '맑음', DB02: '구름 조금', DB03: '구름 많음', DB04: '흐림' }; const rainNames = { 0: '없음', 1: '비', 2: '비/눈', 3: '눈', 4: '소나기' }; $('#temperature').textContent = `${Math.round(Number(current.temperature_2m ?? current.temperature))}°`; $('#skyStatus').textContent = skyNames[current.sky] || (weatherCode === 0 ? '맑음' : weatherCode <= 3 ? '구름 많음' : '흐림'); $('#rainStatus').textContent = rainNames[current.rain] || (Number(current.precipitation ?? 0) > 0 ? '비' : '없음'); $('#weatherIcon').textContent = current.sky === 'DB04' || weatherCode > 3 ? '☁' : '☀'; $('#weatherNote').textContent = '양주 기상정보 · Edge Function'; } catch { $('#weatherNote').textContent = '기상정보 Edge Function을 확인해주세요.'; } }
+async function setup() { $('#todayLabel').textContent = displayDate(today); $('#memoWriter').innerHTML = members.map((member) => `<option>${member}</option>`).join(''); $('#closeBucketModal').addEventListener('click', () => $('#bucketModal').close()); $('#closeAllBuckets').addEventListener('click', () => $('#allBucketModal').close()); $('#closeDayModal').addEventListener('click', () => $('#dayModal').close()); $('#openAllBuckets').addEventListener('click', openAllBuckets); $('#saveBucket').addEventListener('click', saveBucket); $('#saveMemo').addEventListener('click', saveMemo); $('#prevMonth').addEventListener('click', () => { calendarDate.setMonth(calendarDate.getMonth() - 1); renderCalendar(); }); $('#nextMonth').addEventListener('click', () => { calendarDate.setMonth(calendarDate.getMonth() + 1); renderCalendar(); }); renderMembers(); renderCalendar(); await loadFamilyData(); loadAirQuality(); loadWeather(); }
 setup();

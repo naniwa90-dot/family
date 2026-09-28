@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#123c43">
-  <title>우리가족 버킷리스트</title>
+  <title>가족 버킷리스트</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Gowun+Dodum&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -13,9 +13,9 @@
 <body>
   <div class="page-shell">
     <header class="topbar">
-      <a class="brand" href="#top" aria-label="우리가족 버킷리스트 홈">
+      <a class="brand" href="#top" aria-label="가족 버킷리스트 홈">
         <span class="brand-mark">家</span>
-        <span><strong>우리가족 버킷리스트</strong><small>함께 계획하고, 함께 이루는 하루</small></span>
+        <span><strong>가족 버킷리스트</strong><small>함께 계획하고, 함께 이루는 하루</small></span>
       </a>
       <div class="topbar-date" id="todayLabel"></div>
     </header>
@@ -23,7 +23,7 @@
       <section class="intro-section">
         <div>
           <p class="eyebrow">OUR FAMILY / BUCKET LIST</p>
-          <h1>우리가족 버킷리스트,<br><em>오늘부터 적어봐요.</em></h1>
+          <h1>가족 버킷리스트,<br><em>오늘부터 적어봐요.</em></h1>
           <p class="intro-copy">양주의 공기와 날씨를 확인하고<br>가족의 하고 싶은 일을 한 곳에 기록해요.</p>
         </div>
         <div class="sunrise-art" aria-hidden="true"><span class="hope-glow"></span><span class="hope-sun"></span><span class="spark spark-one">✦</span><span class="spark spark-two">✧</span><span class="spark spark-three">✦</span><span class="paper-plane">➤</span><span class="art-label">DREAM TOGETHER</span></div>
@@ -41,6 +41,6 @@
   <dialog class="bucket-modal day-modal" id="bucketModal" aria-labelledby="bucketModalTitle"><div class="modal-content"><button class="modal-close" id="closeBucketModal" type="button" aria-label="버킷리스트 닫기">×</button><p class="panel-kicker">FAMILY BUCKET LIST</p><h2 id="bucketModalTitle"></h2><ul class="bucket-items" id="bucketItems"></ul><div class="bucket-form"><input id="bucketInput" type="text" placeholder="하고 싶은 일을 적어보세요." maxlength="80"><label class="date-field" for="bucketDate">실행예정</label><input id="bucketDate" type="date" aria-label="실행 예정 날짜"><input id="bucketEditIndex" type="hidden" value="-1"><button class="primary-button" id="saveBucket" type="button">저장</button></div></div></dialog>
   <dialog class="all-bucket-modal day-modal" id="allBucketModal" aria-labelledby="allBucketTitle"><div class="modal-content"><button class="modal-close" id="closeAllBuckets" type="button" aria-label="전체 버킷리스트 닫기">×</button><p class="panel-kicker">FAMILY COLLECTION</p><h2 id="allBucketTitle">전체 버킷리스트</h2><div id="allBucketContent"></div></div></dialog>
   <dialog class="day-modal" id="dayModal" aria-labelledby="modalDate"><div class="modal-content"><button class="modal-close" id="closeDayModal" type="button" aria-label="날짜 기록 닫기">×</button><h2 id="modalDate"></h2><div class="modal-planned" id="modalPlanned"></div><div class="modal-members" id="modalMembers"></div><div class="memo-form"><label for="memoWriter">작성자</label><select id="memoWriter"></select><label for="memoText">내용</label><textarea id="memoText" rows="4" placeholder="오늘의 이야기를 남겨보세요."></textarea><input id="memoEditIndex" type="hidden" value="-1"><div class="memo-actions"><button class="primary-button" id="saveMemo" type="button">저장</button></div></div></div></dialog>
-  <script type="module" src="app.js"></script>
+  <script type="module" src="app.js?v=supabase-2"></script>
 </body>
 </html>
